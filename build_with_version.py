@@ -42,7 +42,7 @@ result = subprocess.run(["pyinstaller", "build.spec", "--clean"], capture_output
 exe_path = os.path.join("dist", "New_Recon_Tools.exe")
 if os.path.exists(exe_path):
     # 重命名文件
-    new_exe_path = os.path.join("dist", f"供应商对帐工具集_v{current_version}.exe")
+    new_exe_path = os.path.join("dist", f"recon_tools_v{current_version}.exe")
     os.rename(exe_path, new_exe_path)
     exe_path = new_exe_path
     print("[4/5] 打包完成！")
@@ -59,7 +59,7 @@ if os.path.exists(exe_path):
     
     # 创建压缩包
     print("[5/5] 正在创建压缩包...")
-    zip_filename = f"供应商对帐工具集_v{current_version}.zip"
+    zip_filename = f"recon_tools_v{current_version}.zip"
     zip_path = os.path.join("dist", zip_filename)
     
     with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
