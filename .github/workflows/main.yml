@@ -25,10 +25,10 @@ jobs:
         
     - name: Build with PyInstaller
       run: |
-        pyinstaller build.spec
+        python build_with_version.py
         
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
-        name: New_Recon_Tools
-        path: dist/New_Recon_Tools.exe
+        name: 供应商对帐工具集
+        path: dist/供应商对帐工具集_*.exe
