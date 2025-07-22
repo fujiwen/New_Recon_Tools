@@ -27,8 +27,13 @@ jobs:
       run: |
         python build_with_version.py
         
+    - name: Get App Version
+      run: |
+        $version = Select-String -Path Bldbuy_Recon_UI.py -Pattern "VERSION = '([\d\.]+)'" | ForEach-Object { $_.Matches.Groups[1].Value }
+        echo "APP_VERSION=$version" >> $env:GITHUB_ENV
+        
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
-        name: recon_tools_${{ github.run_number }}
+        name: recon_tools_v${{ env.APP_VERSION }}
         path: dist/recon_tools_*.exe
