@@ -152,7 +152,7 @@ class ProductClassificationApp:
         mode_frame = ttk.Frame(control_frame)
         mode_frame.pack(fill=X, pady=5)
         
-        ttk.Label(mode_frame, text="选择模式:").pack(side=LEFT, padx=(0, 10))
+        ttk.Label(mode_frame, text="处理模式:").pack(side=LEFT, padx=(0, 10))
         
         # 选择模式单选按钮组
         self.mode_var = StringVar(value="multi_files")
@@ -198,10 +198,6 @@ class ProductClassificationApp:
         log_frame.configure(height=200)
         
         self.log_text = Text(log_frame, wrap=WORD, state=DISABLED, height=14)
-        scrollbar = ttk.Scrollbar(log_frame, command=self.log_text.yview)
-        self.log_text.configure(yscrollcommand=scrollbar.set)
-        
-        scrollbar.pack(side=RIGHT, fill=Y)
         self.log_text.pack(fill=X, expand=False)
     
     def update_file_selection_ui(self, *args):

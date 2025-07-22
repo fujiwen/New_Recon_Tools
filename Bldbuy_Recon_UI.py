@@ -17,6 +17,9 @@ import sys
 import subprocess
 from Product_Classification_Tool import ProductClassificationApp
 
+# 版本号
+VERSION = '2.0.4'
+
 class BldBuyApp:
     def __init__(self, root):
         self.root = root
@@ -28,7 +31,7 @@ class BldBuyApp:
             self.root.iconbitmap(icon_path)
         
         # 设置窗口大小并居中
-        self.set_window_geometry(800, 653)
+        self.set_window_geometry(1280, 849)
         
         # 创建主题选择下拉框
         self.create_theme_selector()
@@ -257,10 +260,6 @@ Sheet_tittle:供货明细表'''
         log_frame.configure(height=200)
         
         self.log_text = Text(log_frame, wrap=WORD, state=DISABLED, height=18)
-        scrollbar = ttk.Scrollbar(log_frame, command=self.log_text.yview, bootstyle=PRIMARY)
-        self.log_text.configure(yscrollcommand=scrollbar.set)
-        
-        scrollbar.pack(side=RIGHT, fill=Y)
         self.log_text.pack(fill=X, expand=False)
         
     def select_input_file(self):
@@ -779,7 +778,7 @@ Sheet_tittle:供货明细表'''
         developer_label = ttk.Label(
             developer_frame,
             text="Powered By Cayman Fu @ Sofitel HAIKOU 2025 Ver 2.3.1",
-            font=("微软雅黑", 11),
+            font=("微软雅黑", 10),
             bootstyle=SECONDARY
         )
         developer_label.pack(side=BOTTOM, pady=5)
