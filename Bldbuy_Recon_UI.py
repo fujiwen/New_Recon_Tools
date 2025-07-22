@@ -102,7 +102,12 @@ class BldBuyApp:
         
     def get_config_path(self):
         """获取配置文件路径"""
-        return os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.txt")
+        if getattr(sys, 'frozen', False):
+            # 如果是打包后的exe运行
+            return os.path.join(os.path.dirname(sys.executable), "config.txt")
+        else:
+            # 如果是源码运行
+            return os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.txt")
     
     def ensure_config_file(self):
         """确保配置文件存在，如果不存在则创建"""
@@ -123,7 +128,7 @@ Sheet_tittle:供货明细表'''
     def load_theme(self):
         """从配置文件加载主题设置"""
         try:
-            config_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'config.txt')
+            config_file = self.get_config_path()
             if os.path.exists(config_file):
                 with open(config_file, 'r', encoding='utf-8') as f:
                     config = dict(line.split(':', 1) for line in f if ':' in line)
@@ -135,7 +140,7 @@ Sheet_tittle:供货明细表'''
     def save_theme(self, theme_name):
         """保存主题设置到配置文件"""
         try:
-            config_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'config.txt')
+            config_file = self.get_config_path()
             config = {}
             
             # 读取现有配置
