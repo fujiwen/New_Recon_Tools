@@ -7,6 +7,7 @@ from datetime import datetime
 
 # 设置控制台编码为UTF-8
 os.environ["PYTHONIOENCODING"] = "utf-8"
+sys.stdout.reconfigure(encoding='utf-8')
 
 # 打印标题
 print("="*50)
