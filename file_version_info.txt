@@ -1,0 +1,27 @@
+VSVersionInfo(
+  ffi=FixedFileInfo(
+    filevers=(4, 0, 0, 0),
+    prodvers=(4, 0, 0, 0),
+    mask=0x3f,
+    flags=0x0,
+    OS=0x40004,
+    fileType=0x1,
+    subtype=0x0,
+    date=(0, 0)
+  ),
+  kids=[
+    StringFileInfo(
+      [
+        StringTable(
+          u'040904B0',
+          [StringStruct(u'CompanyName', u'Cayman'),
+           StringStruct(u'FileDescription', u'供应商对帐工具集'),
+           StringStruct(u'FileVersion', u'4.0.0.0'),
+           StringStruct(u'InternalName', u'New_Recon_Tools'),
+           StringStruct(u'LegalCopyright', u'Copyright (C) 2024 Cayman'),
+           StringStruct(u'OriginalFilename', u'New_Recon_Tools.exe'),
+           StringStruct(u'ProductName', u'供应商对帐工具集'),
+           StringStruct(u'ProductVersion', u'4.0.0.0')])
+      ])
+  ]
+)

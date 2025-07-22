@@ -1,0 +1,13 @@
+B2:海口索菲特大酒店
+
+D2:海南省海口市龙华区滨海大道105号
+
+E2:符小瑜 0898-31289999
+
+B32:abbyfu@hksft.com
+
+hotelname:海口索菲特大酒店
+
+Sheet_tittle:供货明细表
+
+theme:sandstone
