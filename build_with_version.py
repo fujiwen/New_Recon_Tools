@@ -79,5 +79,4 @@ else:
     print("[3/3] 打包失败！")
     print("错误信息:")
     print(result.stderr)
-
-input("\n按回车键退出...")
+    sys.exit(1)
