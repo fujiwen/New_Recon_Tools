@@ -297,13 +297,25 @@ class ProductClassificationApp:
         self.log_text.config(state=NORMAL)
         self.log_text.delete(1.0, END)
         self.log_text.config(state=DISABLED)
+        
+        # 初始化日志列表
+        self.log_messages = []
+        
+        # 重置进度条并显示准备状态
         self.progress['value'] = 0
+        self.progress.config(mode='determinate')
+        self.root.update_idletasks()
+        
+        self.log_message("开始处理文件...")
         
         # 使用线程处理，避免界面卡顿
         threading.Thread(target=self.process_multiple_files, args=(files_to_process,), daemon=True).start()
     
     def process_multiple_files(self, file_paths):
         """处理多个文件"""
+        import time
+        start_time = time.time()
+        
         try:
             total_files = len(file_paths)
             self.log_message(f"共找到 {total_files} 个文件需要处理")
@@ -314,9 +326,11 @@ class ProductClassificationApp:
             
             # 处理每个文件
             for i, file_path in enumerate(file_paths):
-                # 更新总体进度
-                overall_progress = int((i / total_files) * 100)
-                self.progress['value'] = overall_progress
+                self.log_message(f"\n[{i+1}/{total_files}] 正在处理文件: {os.path.basename(file_path)}")
+                
+                # 更新基础进度（文件级别）
+                base_progress = int((i / total_files) * 100)
+                self.progress['value'] = base_progress
                 self.root.update_idletasks()
                 
                 # 调用处理单个文件的方法
@@ -324,11 +338,33 @@ class ProductClassificationApp:
                 
                 if success:
                     successful_files += 1
+                    self.log_message(f"  ✓ 文件处理成功")
                 else:
                     failed_files += 1
+                    self.log_message(f"  ✗ 文件处理失败")
+                
+                # 更新完整进度
+                complete_progress = int(((i + 1) / total_files) * 100)
+                self.progress['value'] = complete_progress
+                self.root.update_idletasks()
             
-            # 更新进度条到100%
+            # 计算处理时间
+            end_time = time.time()
+            processing_time = end_time - start_time
+            
+            self.log_message(f"\n📊 批量处理完成！")
+            self.log_message(f"  ✓ 成功处理: {successful_files} 个文件")
+            if failed_files > 0:
+                self.log_message(f"  ✗ 失败: {failed_files} 个文件")
+            self.log_message(f"  ⏱️ 总处理时间: {processing_time:.2f} 秒")
+            if total_files > 0:
+                avg_time = processing_time / total_files
+                self.log_message(f"  📈 平均每文件处理时间: {avg_time:.2f} 秒")
+            
+            # 确保进度条显示100%
             self.progress['value'] = 100
+            self.root.update_idletasks()
+            self.log_message(f"  ✅ 进度条已更新至100%")
             
             if successful_files > 0:
                 # 获取输出目录
@@ -380,10 +416,13 @@ class ProductClassificationApp:
                 return False
             
             # 读取Excel文件
+            self.log_message(f"  → 读取Excel文件")
             try:
                 # 表头在第6行，所以跳过前5行
                 df = pd.read_excel(file_path, header=5)
+                self.log_message(f"  → 成功读取 {len(df)} 行数据")
             except Exception as e:
+                self.log_message(f"  ✗ 读取Excel文件失败: {str(e)}")
                 if not is_batch:
                     messagebox.showerror("错误", f"无法读取Excel文件:\n{str(e)}")
                     self.processing = False
@@ -392,6 +431,7 @@ class ProductClassificationApp:
             
             # 检查是否存在M列（Excel中的第13列）
             if len(df.columns) < 13:  # 假设M列是第13列（索引为12）
+                self.log_message(f"  ✗ 文件格式错误：列数不足（需要至少13列，实际{len(df.columns)}列）")
                 if not is_batch:
                     self.processing = False
                     self.process_btn.config(state=NORMAL)
@@ -399,6 +439,7 @@ class ProductClassificationApp:
             
             # 获取M列的列名和数据
             m_column_name = df.columns[12]  # 索引为12的列（M列）
+            self.log_message(f"  → 准备对M列（{m_column_name}）进行分类标记")
             
             # 添加新列用于存储分类结果（在M列旁边）
             classification_column = "品类标记"
@@ -406,6 +447,11 @@ class ProductClassificationApp:
             
             # 进行分类标记
             total_rows = len(df)
+            self.log_message(f"  → 开始分类标记，共 {total_rows} 行数据")
+            
+            # 统计分类结果
+            classification_stats = {"干货": 0, "海鲜": 0, "酒类": 0, "饮料": 0, "水": 0, "其他": 0, "空值": 0}
+            
             for i, row in df.iterrows():
                 # 更新进度条
                 progress_value = int((i + 1) / total_rows * 100)
@@ -417,21 +463,34 @@ class ProductClassificationApp:
                 
                 # 如果M列内容为空，则不进行标记
                 if not m_value:
+                    classification_stats["空值"] += 1
                     continue
                 
                 # 应用分类规则
                 if any(keyword in m_value for keyword in ["鱼虾蟹干及瑶柱干", "海参鲍鱼鱼翅干及肚干", "其他水产干货"]) or "燕窝" in m_value:
                     df.at[i, classification_column] = "干货"
+                    classification_stats["干货"] += 1
                 elif "活鲜" in m_value:
                     df.at[i, classification_column] = "海鲜"
+                    classification_stats["海鲜"] += 1
                 elif "酒" in m_value:
                     df.at[i, classification_column] = "酒类"
+                    classification_stats["酒类"] += 1
                 elif "饮料" in m_value:
                     df.at[i, classification_column] = "饮料"
+                    classification_stats["饮料"] += 1
                 elif m_value == "水":
                     df.at[i, classification_column] = "水"
+                    classification_stats["水"] += 1
                 else:
                     df.at[i, classification_column] = "其他"
+                    classification_stats["其他"] += 1
+            
+            # 输出分类统计
+            self.log_message(f"  → 分类完成，统计结果：")
+            for category, count in classification_stats.items():
+                if count > 0:
+                    self.log_message(f"    {category}: {count} 项")
             
             # 根据用户选择决定是保存到新文件还是直接修改原文件
             if self.edit_in_place_var.get():
@@ -449,9 +508,11 @@ class ProductClassificationApp:
                 output_file = os.path.join(output_dir, f"{file_name}{file_ext}")
             
             try:
+                self.log_message(f"  → 开始保存文件...")
                 # 尝试使用openpyxl保存，保留原始格式
                 # 先读取原始文件以保留格式
                 try:
+                    self.log_message(f"  → 读取原始Excel文件格式...")
                     wb = load_workbook(file_path)
                     ws = wb.active
                     
@@ -958,26 +1019,29 @@ class ProductClassificationApp:
                     ws.column_dimensions['N'].hidden = True
                     
                     # 保存文件
+                    self.log_message(f"  → 正在保存Excel文件...")
                     wb.save(output_file)
+                    self.log_message(f"  → Excel文件保存成功（保留原始格式）")
                 except Exception as e:
-                    self.log_message(f"保留格式保存失败，将使用标准方式保存: {str(e)}")
+                    self.log_message(f"  → 保留格式保存失败，将使用标准方式保存: {str(e)}")
                     # 如果上面的方法失败，使用pandas直接保存
+                    self.log_message(f"  → 使用标准方式保存文件...")
                     with pd.ExcelWriter(output_file, engine='openpyxl') as writer:
                         df.to_excel(writer, index=False)
                     if self.edit_in_place_var.get():
-                        self.log_message(f"已使用标准方式直接修改原文件")
+                        self.log_message(f"  → 已使用标准方式直接修改原文件")
                     else:
-                        self.log_message(f"已使用标准方式保存文件到: {output_file}")
+                        self.log_message(f"  → 已使用标准方式保存文件到: {output_file}")
             except Exception as e:
-                self.log_message(f"保存文件时出错: {str(e)}")
+                self.log_message(f"  ✗ 保存文件时出错: {str(e)}")
                 return False
             
             if self.edit_in_place_var.get():
-                self.log_message(f"分类完成，已直接修改原文件")
-                self.log_message(f"文件路径: {output_file}")
+                self.log_message(f"  ✓ 分类完成，已直接修改原文件")
+                self.log_message(f"  → 文件路径: {output_file}")
             else:
-                self.log_message(f"分类完成，文件已保存")
-                self.log_message(f"文件路径: {output_file}")
+                self.log_message(f"  ✓ 分类完成，文件已保存")
+                self.log_message(f"  → 文件路径: {output_file}")
             
             # 统计各分类数量和金额
             total_items = len(df)
