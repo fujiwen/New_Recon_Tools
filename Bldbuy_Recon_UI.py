@@ -23,7 +23,7 @@ VERSION = '2.0.5'
 class BldBuyApp:
     def __init__(self, root):
         self.root = root
-        self.root.title(f"供应商对帐工具集 v{VERSION} - Powered By Cayman Fu @ Sofitel HAIKOU")
+        self.root.title(f"供应商对账工具集 v{VERSION} - Powered By Cayman Fu @ Sofitel HAIKOU")
         
         # 设置窗口图标
         icon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "favicon.ico")
@@ -72,8 +72,8 @@ class BldBuyApp:
         # 创建左侧功能按钮
         self.create_left_buttons()
         
-        # 默认选中"对帐明细表"按钮
-        self.handle_button_click(self.show_supplier_panel, ">对帐明细表")
+        # 默认选中"对账明细表"按钮
+        self.handle_button_click(self.show_supplier_panel, ">对账明细表")
         
         # 初始化状态
         self.processing = False
@@ -185,8 +185,8 @@ Sheet_tittle:供货明细表'''
         """创建左侧功能按钮"""
         self.left_buttons = []
         buttons = [
-            (">对帐明细表", self.show_supplier_panel),
-            (">对帐确认函", self.show_confirmation_panel)
+            (">对账明细表", self.show_supplier_panel),
+            (">对账确认函", self.show_confirmation_panel)
         ]
         
         for text, command in buttons:
@@ -241,6 +241,20 @@ Sheet_tittle:供货明细表'''
         ttk.Entry(self.file_frame, textvariable=self.input_file_var, width=40).pack(side=LEFT, padx=5)
         ttk.Button(self.file_frame, text="浏览...", command=self.select_input_file, bootstyle=SECONDARY).pack(side=LEFT)
         
+        # 添加分组选项框架
+        self.group_frame = ttk.Frame(control_frame)
+        self.group_frame.pack(fill=X, pady=5)
+        
+        # 添加分组选项选择框
+        self.group_by_tax_rate_var = BooleanVar(value=False)
+        self.group_checkbox = ttk.Checkbutton(
+            self.group_frame, 
+            text="按税率生成明细",
+            variable=self.group_by_tax_rate_var,
+            bootstyle=INFO
+        )
+        self.group_checkbox.pack(side=LEFT, padx=5)
+        
         # 处理按钮
         self.process_btn = ttk.Button(control_frame, text="开始处理", command=self.start_processing, bootstyle=SUCCESS)
         self.process_btn.pack(pady=10)
@@ -290,7 +304,13 @@ Sheet_tittle:供货明细表'''
             btn.config(state=DISABLED)
         
         self.log_text.delete(1.0, END)
+        
+        # 重置进度条并显示准备状态
         self.progress['value'] = 0
+        self.progress.config(mode='determinate')
+        self.root.update_idletasks()
+        
+        self.log_message("开始处理文件...")
         
         # 使用线程处理，避免界面卡顿
         threading.Thread(target=self.process_files, daemon=True).start()
@@ -356,6 +376,9 @@ Sheet_tittle:供货明细表'''
         return 35
         
     def process_files(self):
+        import time
+        start_time = time.time()
+        
         try:
             # 初始化日志列表和文件夹
             self.log_messages = []
@@ -379,11 +402,23 @@ Sheet_tittle:供货明细表'''
             
             # 批量处理文件
             total_files = len(input_files)
+            self.current_file_index = 0
+            self.total_files = total_files
+            
+            self.log_message(f"开始批量处理 {total_files} 个文件...")
+            
             for index, input_file in enumerate(input_files, 1):
                 try:
-                    self.log_message(f"\n正在处理文件: {os.path.basename(input_file)}")
+                    self.current_file_index = index
+                    self.log_message(f"\n[{index}/{total_files}] 正在处理文件: {os.path.basename(input_file)}")
+                    
+                    # 更新基础进度（文件级别）
+                    base_progress = int(((index - 1) / total_files) * 100)
+                    self.progress['value'] = base_progress
+                    self.root.update_idletasks()
                     
                     # 预处理数据
+                    self.log_message(f"  → 读取和预处理Excel文件")
                     df_filtered = self.preprocess_excel(input_file)
                     if df_filtered is None:  # 预处理失败
                         continue
@@ -398,17 +433,27 @@ Sheet_tittle:供货明细表'''
                     year_month_folder = os.path.join(folders['output'], year_month)
                     os.makedirs(year_month_folder, exist_ok=True)
                     
-                    # 分组并处理数据
+                    # 分组并处理数据（带进度更新）
                     self.process_grouped_data(df_filtered, year_month, year_month_folder, header_rows)
                     
                     # 归档文件
+                    self.log_message(f"  → 归档原文件")
                     self.archive_file(input_file, folders['archive'])
                     
-                    # 更新进度
+                    # 更新完整进度
                     self.update_progress(index, total_files)
                     
                 except Exception as e:
-                    self.log_message(f"处理文件 {os.path.basename(input_file)} 时出错: {str(e)}")
+                    self.log_message(f"✗ 处理文件 {os.path.basename(input_file)} 时出错: {str(e)}")
+            
+            # 计算处理时间
+            end_time = time.time()
+            processing_time = end_time - start_time
+            self.log_message(f"\n处理完成！总耗时: {processing_time:.2f} 秒")
+            
+            # 确保进度条显示100%
+            self.progress['value'] = 100
+            self.root.update_idletasks()
             
             # 显示处理结果
             self.show_processing_results(folders['output'])
@@ -431,7 +476,7 @@ Sheet_tittle:供货明细表'''
             config_file = os.path.join(application_path, 'config.txt')
             
             if not os.path.exists(config_file):
-                self.log_message("警告：未找到config.txt文件,将会导致对帐单标题错误")
+                self.log_message("警告：未找到config.txt文件,将会导致对账单标题错误")
                 return []
             
             with open(config_file, 'r', encoding='utf-8') as f:
@@ -486,9 +531,37 @@ Sheet_tittle:供货明细表'''
         else:
             self.log_message("警告：文件中缺少排序所需的列，将不按顺序处理数据。")
         
-        # 使用向量化操作处理分组
-        for group_name, group_data in df.groupby(['供应商/备用金报销账户'], as_index=False):
-            self.process_group_data(group_name, group_data, year_month, year_month_folder, header_rows)
+        # 根据选择框状态决定分组方式
+        if self.group_by_tax_rate_var.get():
+            # 按供应商和税率分组
+            self.log_message("使用分组模式：按同个供应商、不同税率生成供货明细表")
+            groups = list(df.groupby(['供应商/备用金报销账户', '税率'], as_index=False))
+            total_groups = len(groups)
+            self.log_message(f"共发现 {total_groups} 个供应商-税率组合")
+            
+            for group_index, (group_key, group_data) in enumerate(groups, 1):
+                # group_key 是一个元组 (供应商名称, 税率)
+                supplier_name, tax_rate = group_key
+                self.log_message(f"正在处理第 {group_index}/{total_groups} 个分组: {supplier_name} (税率: {tax_rate})")
+                
+                # 更新详细进度
+                self.update_detailed_progress(group_index, total_groups)
+                
+                self.process_group_data_with_tax_rate(supplier_name, tax_rate, group_data, year_month, year_month_folder, header_rows)
+        else:
+            # 只按供应商分组（原有逻辑）
+            self.log_message("使用分组模式：按供应商生成供货明细表")
+            groups = list(df.groupby(['供应商/备用金报销账户'], as_index=False))
+            total_groups = len(groups)
+            self.log_message(f"共发现 {total_groups} 个供应商")
+            
+            for group_index, (group_name, group_data) in enumerate(groups, 1):
+                self.log_message(f"正在处理第 {group_index}/{total_groups} 个供应商: {group_name}")
+                
+                # 更新详细进度
+                self.update_detailed_progress(group_index, total_groups)
+                
+                self.process_group_data(group_name, group_data, year_month, year_month_folder, header_rows)
             
     def archive_file(self, input_file, archive_folder):
         """归档处理完的文件"""
@@ -508,9 +581,29 @@ Sheet_tittle:供货明细表'''
             self.log_message(f"归档文件时出错: {str(e)}")
             
     def update_progress(self, current, total):
-        """更新进度条"""
+        """更新进度条（文件级别）"""
         progress_value = int((current / total) * 100)
         self.progress['value'] = progress_value
+        self.root.update_idletasks()
+        
+    def update_detailed_progress(self, current_group, total_groups):
+        """更新详细进度条（分组级别）"""
+        if not hasattr(self, 'current_file_index') or not hasattr(self, 'total_files'):
+            return
+            
+        # 计算当前文件的基础进度
+        file_base_progress = ((self.current_file_index - 1) / self.total_files) * 100
+        
+        # 计算当前文件内的分组进度
+        group_progress = (current_group / total_groups) * (100 / self.total_files)
+        
+        # 总进度 = 已完成文件的进度 + 当前文件内的进度
+        total_progress = file_base_progress + group_progress
+        
+        # 确保进度不超过100%
+        total_progress = min(total_progress, 100)
+        
+        self.progress['value'] = int(total_progress)
         self.root.update_idletasks()
         
     def show_processing_results(self, output_folder):
@@ -562,24 +655,55 @@ Sheet_tittle:供货明细表'''
         
         try:
             # 预处理数据
+            self.log_message(f"  → 预处理数据: {len(group_data)} 条记录")
             df_processed, output_filepath = self.prepare_group_data(group_name, group_data, year_month, year_month_folder)
             
             # 创建工作簿和工作表
+            self.log_message(f"  → 创建Excel工作簿")
             wb = Workbook()
             ws = wb.active
             ws.title = "Statement"
             
             # 写入数据
+            self.log_message(f"  → 写入数据到Excel")
             self.write_excel_content(ws, df_processed, group_data, header_rows)
             
             # 设置样式并保存
+            self.log_message(f"  → 应用样式并保存文件")
             self.apply_styles(ws)
             wb.save(output_filepath)
             
-            self.log_message(f"已成功创建 {os.path.basename(output_filepath)}")
+            self.log_message(f"✓ 已成功创建 {os.path.basename(output_filepath)}")
             
         except Exception as e:
-            self.log_message(f"处理供应商 {supplier_account} 的数据时出错: {str(e)}")
+            self.log_message(f"✗ 处理供应商 {supplier_account} 的数据时出错: {str(e)}")
+    
+    def process_group_data_with_tax_rate(self, supplier_name, tax_rate, group_data, year_month, year_month_folder, header_rows):
+        """处理按供应商和税率分组的数据"""
+        try:
+            # 预处理数据，使用包含税率的文件名
+            self.log_message(f"  → 预处理数据: {len(group_data)} 条记录")
+            df_processed, output_filepath = self.prepare_group_data_with_tax_rate(supplier_name, tax_rate, group_data, year_month, year_month_folder)
+            
+            # 创建工作簿和工作表
+            self.log_message(f"  → 创建Excel工作簿")
+            wb = Workbook()
+            ws = wb.active
+            ws.title = "Statement"
+            
+            # 写入数据
+            self.log_message(f"  → 写入数据到Excel")
+            self.write_excel_content(ws, df_processed, group_data, header_rows)
+            
+            # 设置样式并保存
+            self.log_message(f"  → 应用样式并保存文件")
+            self.apply_styles(ws)
+            wb.save(output_filepath)
+            
+            self.log_message(f"✓ 已成功创建 {os.path.basename(output_filepath)}")
+            
+        except Exception as e:
+            self.log_message(f"✗ 处理供应商 {supplier_name} (税率: {tax_rate}) 的数据时出错: {str(e)}")
     
     def prepare_group_data(self, group_name, group_data, year_month, year_month_folder):
         """准备分组数据"""
@@ -611,6 +735,39 @@ Sheet_tittle:供货明细表'''
         
         return df_processed, output_filepath
     
+    def prepare_group_data_with_tax_rate(self, supplier_name, tax_rate, group_data, year_month, year_month_folder):
+        """准备按供应商和税率分组的数据"""
+        # 检查跨月
+        group_data['收货日期'] = pd.to_datetime(group_data['收货日期'], errors='coerce').dt.strftime('%Y-%m-%d')
+        unique_months = pd.to_datetime(group_data['收货日期']).dt.strftime('%Y-%m').unique()
+        if len(unique_months) > 1:
+            self.log_message(f"警告：供应商 {supplier_name} (税率: {tax_rate}) 的收货日期包含跨月数据，请核查。包含的月份有：{', '.join(unique_months)}")
+        
+        # 预处理数据
+        df_processed = group_data.reindex(columns=self.expected_headers).fillna('')
+        df_processed['税率'] = df_processed['税率'].apply(lambda x: f"{int(float(x) * 100)}%" if pd.notna(x) else '0%')
+        
+        # 处理退货数据：将退货金额转换为负数
+        if '退货' in group_data.columns:
+            return_mask = (group_data['退货'] == '是')
+            amount_columns = ['单价(结算)', '小计金额(结算)', '税额(结算)', '小计价税(结算)']
+            
+            for col in amount_columns:
+                if col in df_processed.columns:
+                    # 将退货行的金额列转换为负数
+                    df_processed.loc[return_mask, col] = df_processed.loc[return_mask, col].apply(
+                        lambda x: -abs(float(x)) if pd.notna(x) and str(x).replace('.', '').replace('-', '').isdigit() else x
+                    )
+        
+        # 构建包含税率信息的文件路径
+        sanitized_supplier_name = ''.join([c if c.isalnum() or c in (' ', '.') else '_' for c in str(supplier_name)]).strip('_')
+        # 将税率转换为百分比格式用于文件名
+        tax_rate_percent = f"{int(float(tax_rate) * 100)}%" if pd.notna(tax_rate) else '0%'
+        sanitized_tax_rate = ''.join([c if c.isalnum() or c in (' ', '.') else '_' for c in str(tax_rate_percent)]).strip('_')
+        output_filepath = os.path.join(year_month_folder, f"{year_month}_{sanitized_supplier_name}_{sanitized_tax_rate}.xlsx")
+        
+        return df_processed, output_filepath
+    
     def write_excel_content(self, ws, df_processed, group_data, header_rows):
         """写入Excel内容"""
         # 写入表头
@@ -626,7 +783,7 @@ Sheet_tittle:供货明细表'''
         
         # 填入固定文字
         ws['A3'] = '供应商名称：'
-        ws['A4'] = '对帐周期：'
+        ws['A4'] = '对账周期：'
         ws['C3'] = '小计金额(结算)：'
         ws['C4'] = '税额(结算)：'
         ws['C5'] = '小计价税(结算)：'
@@ -895,7 +1052,7 @@ Sheet_tittle:供货明细表'''
         
 if __name__ == "__main__":
     root = ttk.Window(
-        title=f"供应商对帐工具 v{VERSION} - Powered By Cayman Fu @ Sofitel HAIKOU",
+        title=f"供应商对账工具 v{VERSION} - Powered By Cayman Fu @ Sofitel HAIKOU",
         themename="cosmo",
         size=(1024, 768),
         position=None,  # 居中显示
