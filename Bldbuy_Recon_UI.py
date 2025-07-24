@@ -720,11 +720,11 @@ Sheet_tittle:供货明细表'''
         ws.sheet_view.zoomScale = 80  # 设置页面缩放比例为80%
             
         ws.sheet_properties.pageSetUpPr.fitToPage = True
-        ws.print_title_rows = '1:6'
+        ws.print_title_rows = '1:7'
         ws.freeze_panes = 'A8'
         
         # 页边距批量设置
-        margins = {'left': 0.31, 'right': 0.31, 'top': 0.31, 'bottom': 0.79, 'header': 0.31, 'footer': 0.50}
+        margins = {'left': 0.31, 'right': 0.31, 'top': 0.31, 'bottom': 0.79, 'header': 0.31, 'footer': 0.31}
         ws.page_margins = PageMargins(**{k: v * 0.3937 for k, v in margins.items()})
         
         # 页脚设置
@@ -763,9 +763,9 @@ Sheet_tittle:供货明细表'''
             row_num = row[0].row
             
             # 确定行样式
-            if row_num < 6:  # 前5行
+            if row_num < 7:  # 前6行
                 style = styles_cache['header']
-            elif row_num == 6:  # 第6行
+            elif row_num == 7:  # 第7行
                 style = {
                     'fill': None,
                     'font': Font(color='000000', size=13, name='微软雅黑', bold=False),
@@ -795,8 +795,8 @@ Sheet_tittle:供货明细表'''
                     # 设置第一行和第二行的行高
                     if row_num <= 2:
                         ws.row_dimensions[row_num].height = 26
-                    # 设置第六行的行高
-                    elif row_num == 6:
+                    # 设置第七行的行高
+                    elif row_num == 7:
                         ws.row_dimensions[row_num].height = 30
                 else:
                     cell.font = style['font']
