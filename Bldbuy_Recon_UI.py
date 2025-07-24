@@ -6,6 +6,7 @@ from openpyxl.utils.dataframe import dataframe_to_rows
 from openpyxl.worksheet.page import PageMargins
 from openpyxl.worksheet.properties import WorksheetProperties, PageSetupProperties
 from datetime import datetime
+import calendar
 import os
 from tkinter import *
 from tkinter import filedialog, messagebox
@@ -30,9 +31,8 @@ class BldBuyApp:
         if os.path.exists(icon_path):
             self.root.iconbitmap(icon_path)
         
-        # 如果不是使用ttk.Window创建的窗口，则设置窗口大小并居中
-        if not hasattr(self.root, 'position'):
-            self.set_window_geometry(800, 630)
+        # 确保窗口居中显示
+        self.root.after(100, lambda: self.set_window_geometry(1024, 768))
         
         # 创建主题选择下拉框
         self.create_theme_selector()
@@ -794,11 +794,17 @@ Sheet_tittle:供货明细表'''
         supplier_name = df_processed['供应商/备用金报销账户'].iloc[0] if not df_processed.empty else ''
         ws['B3'] = supplier_name
         
-        # 提取年月
+        # 提取年月并格式化为日期范围
         dates = pd.to_datetime(df_processed['收货日期'])
         if not dates.empty:
-            year_month = dates.min().strftime('%Y年%m月')
-            ws['B4'] = year_month
+            min_date = dates.min()
+            year = min_date.year
+            month = min_date.month
+            # 获取该月的最后一天
+            last_day = calendar.monthrange(year, month)[1]
+            # 格式化为"2025年07月01日 至 2025年07月31日"格式
+            date_range = f"{year}年{month:02d}月01日 至 {year}年{month:02d}月{last_day:02d}日"
+            ws['B4'] = date_range
         
         # 计算包含退货负数的合计数据
         total_subtotal = df_processed['小计金额(结算)'].astype(float).sum()
@@ -934,7 +940,7 @@ Sheet_tittle:供货明细表'''
     def _apply_column_widths(self, ws):
         """批量应用列宽设置（使用缓存）"""
         widths = {
-            '订单号': 35, '收货日期': 18, '商品名称': 22, '实收数量': 12, '基本单位': 12,
+            '订单号': 40, '收货日期': 18, '商品名称': 30, '实收数量': 12, '基本单位': 12,
             '单价(结算)': 24, '小计金额(结算)': 24, '税额(结算)': 20, '小计价税(结算)': 20,
             '部门': 20, '供应商/备用金报销账户': 36, '商品分类': 24
         }
