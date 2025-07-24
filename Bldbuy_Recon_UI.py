@@ -23,7 +23,7 @@ VERSION = '2.0.5'
 class BldBuyApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("供应商对帐工具集")
+        self.root.title(f"供应商对帐工具集 v{VERSION} - Powered By Cayman Fu @ Sofitel HAIKOU")
         
         # 设置窗口图标
         icon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "favicon.ico")
@@ -79,9 +79,6 @@ class BldBuyApp:
         
         # 初始化状态
         self.processing = False
-        
-        # 创建开发者信息标签
-        self.create_developer_label()
         
     def set_window_geometry(self, width, height):
         """设置窗口大小并居中"""
@@ -770,22 +767,9 @@ Sheet_tittle:供货明细表'''
         self.root.attributes('-topmost', True)
         self.root.after_idle(self.root.attributes, '-topmost', False)
         
-    def create_developer_label(self):
-        """在窗口底部创建开发者信息标签"""
-        developer_frame = ttk.Frame(self.main_frame)
-        developer_frame.pack(side=BOTTOM, fill=X, pady=5)
-        
-        developer_label = ttk.Label(
-            developer_frame,
-            text="Powered By Cayman Fu @ Sofitel HAIKOU 2025 Ver 2.3.1",
-            font=("微软雅黑", 10),
-            bootstyle=SECONDARY
-        )
-        developer_label.pack(side=BOTTOM, pady=5)
-        
 if __name__ == "__main__":
     root = ttk.Window(
-        title="供应商对帐工具",
+        title=f"供应商对帐工具 v{VERSION} - Powered By Cayman Fu @ Sofitel HAIKOU",
         themename="cosmo",
         size=(800, 600),
         position=None,  # 居中显示
