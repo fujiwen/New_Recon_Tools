@@ -30,8 +30,9 @@ class BldBuyApp:
         if os.path.exists(icon_path):
             self.root.iconbitmap(icon_path)
         
-        # 设置窗口大小并居中
-        self.set_window_geometry(800, 630)
+        # 如果不是使用ttk.Window创建的窗口，则设置窗口大小并居中
+        if not hasattr(self.root, 'position'):
+            self.set_window_geometry(800, 630)
         
         # 创建主题选择下拉框
         self.create_theme_selector()
@@ -71,11 +72,8 @@ class BldBuyApp:
         # 创建左侧功能按钮
         self.create_left_buttons()
         
-        # 创建右侧控制面板
-        self.create_control_panel()
-        
-        # 创建日志显示区域
-        self.create_log_area()
+        # 默认选中"对帐明细表"按钮
+        self.handle_button_click(self.show_supplier_panel, ">对帐明细表")
         
         # 初始化状态
         self.processing = False
@@ -286,6 +284,11 @@ Sheet_tittle:供货明细表'''
             
         self.processing = True
         self.process_btn.config(state=DISABLED)
+        
+        # 禁用所有左侧按钮
+        for btn, text in self.left_buttons:
+            btn.config(state=DISABLED)
+        
         self.log_text.delete(1.0, END)
         self.progress['value'] = 0
         
@@ -416,6 +419,10 @@ Sheet_tittle:供货明细表'''
             self.processing = False
             self.process_btn.config(state=NORMAL)
             
+            # 重新启用所有左侧按钮
+            for btn, text in self.left_buttons:
+                btn.config(state=NORMAL)
+            
     def get_config_header_rows(self):
         """获取配置文件中的标题信息"""
         try:
@@ -436,7 +443,6 @@ Sheet_tittle:供货明细表'''
             return [
                 [''] * 5 + [hotelname] + [''] * 7,
                 [''] * 5 + [sheet_title] + [''] * 7,
-                [''] * 13,
                 [''] * 13,
                 [''] * 13,
                 [''] * 13
@@ -587,6 +593,18 @@ Sheet_tittle:供货明细表'''
         df_processed = group_data.reindex(columns=self.expected_headers).fillna('')
         df_processed['税率'] = df_processed['税率'].apply(lambda x: f"{int(float(x) * 100)}%" if pd.notna(x) else '0%')
         
+        # 处理退货数据：将退货金额转换为负数
+        if '退货' in group_data.columns:
+            return_mask = (group_data['退货'] == '是')
+            amount_columns = ['单价(结算)', '小计金额(结算)', '税额(结算)', '小计价税(结算)']
+            
+            for col in amount_columns:
+                if col in df_processed.columns:
+                    # 将退货行的金额列转换为负数
+                    df_processed.loc[return_mask, col] = df_processed.loc[return_mask, col].apply(
+                        lambda x: -abs(float(x)) if pd.notna(x) and str(x).replace('.', '').replace('-', '').isdigit() else x
+                    )
+        
         # 构建文件路径
         sanitized_name = ''.join([c if c.isalnum() or c in (' ', '.') else '_' for c in str(group_name)]).strip('_')
         output_filepath = os.path.join(year_month_folder, f"{year_month}_{sanitized_name}.xlsx")
@@ -599,13 +617,9 @@ Sheet_tittle:供货明细表'''
         for row in header_rows + [self.expected_headers]:
             ws.append(row)
         
-        # 写入数据行
-        for row in df_processed.values.tolist():
+        # 写入数据行（包括已处理的退货负数数据）
+        for i, row in enumerate(df_processed.values.tolist()):
             ws.append(row)
-        
-        # 处理退货数据
-        if '退货' in group_data.columns:
-            self.process_return_data(ws, group_data)
         
         # 添加合计行
         self.add_total_row(ws, df_processed)
@@ -627,26 +641,48 @@ Sheet_tittle:供货明细表'''
             year_month = dates.min().strftime('%Y年%m月')
             ws['B4'] = year_month
         
+        # 计算包含退货负数的合计数据
+        total_subtotal = df_processed['小计金额(结算)'].astype(float).sum()
+        total_tax = df_processed['税额(结算)'].astype(float).sum()
+        total_amount = df_processed['小计价税(结算)'].astype(float).sum()
+        
+        # 如果有退货数据，需要额外计算退货部分的负数
+        if '退货' in group_data.columns:
+            return_mask = (group_data['退货'] == '是')
+            if return_mask.any():
+                return_data = group_data[return_mask]
+                # 退货金额已经在 prepare_group_data 中转换为负数，这里直接使用
+                pass
+        
         # 填入合计数据
-        ws['D3'] = '{:.2f}'.format(df_processed['小计金额(结算)'].astype(float).sum())
-        ws['D4'] = '{:.2f}'.format(df_processed['税额(结算)'].astype(float).sum())
-        ws['D5'] = '{:.2f}'.format(df_processed['小计价税(结算)'].astype(float).sum())
+        ws['D3'] = '{:.2f}'.format(total_subtotal)
+        ws['D4'] = '{:.2f}'.format(total_tax)
+        ws['D5'] = '{:.2f}'.format(total_amount)
+        
+        # 设置单元格对齐方式
+        # A3A4右对齐
+        ws['A3'].alignment = Alignment(horizontal="right", vertical="center")
+        ws['A4'].alignment = Alignment(horizontal="right", vertical="center")
+        
+        # B3B4左对齐
+        ws['B3'].alignment = Alignment(horizontal="left", vertical="center")
+        ws['B4'].alignment = Alignment(horizontal="left", vertical="center")
+        
+        # C3C4C5右对齐
+        ws['C3'].alignment = Alignment(horizontal="right", vertical="center")
+        ws['C4'].alignment = Alignment(horizontal="right", vertical="center")
+        ws['C5'].alignment = Alignment(horizontal="right", vertical="center")
+        
+        # D3D4D5左对齐
+        ws['D3'].alignment = Alignment(horizontal="left", vertical="center")
+        ws['D4'].alignment = Alignment(horizontal="left", vertical="center")
+        ws['D5'].alignment = Alignment(horizontal="left", vertical="center")
         
         # 隐藏L列和M列
         ws.column_dimensions['L'].hidden = True
         ws.column_dimensions['M'].hidden = True
     
-    def process_return_data(self, ws, group_data):
-        """处理退货数据"""
-        return_mask = (group_data['退货'] == '是')
-        if return_mask.any():
-            return_data = group_data[return_mask].copy()
-            yellow_fill = PatternFill(start_color='FFFF00', end_color='FFFF00', fill_type='solid')
-            
-            for row in return_data[self.expected_headers].values.tolist():
-                ws.append(row)
-                for cell in ws[ws.max_row]:
-                    cell.fill = yellow_fill
+
     
     def add_total_row(self, ws, df_processed):
         """添加合计行"""
@@ -662,8 +698,16 @@ Sheet_tittle:供货明细表'''
             "小计价税(结算)": "{:.2f}".format(total_amount)
         }
         
+        # 会计专用格式
+        accounting_format = '_-* #,##0.00_-;-* #,##0.00_-;_-* "-"??_-;_-@_-'
+        
         for col, value in totals.items():
-            ws.cell(row=last_row, column=self.expected_headers.index(col) + 1, value=value)
+            cell = ws.cell(row=last_row, column=self.expected_headers.index(col) + 1, value=value)
+            # 为数字列应用会计格式
+            if col in ["小计金额(结算)", "税额(结算)", "小计价税(结算)"]:
+                cell.number_format = accounting_format
+                # 设置右对齐
+                cell.alignment = Alignment(horizontal='right', vertical='center')
         
     def apply_styles(self, ws):
         """应用样式到工作表"""
@@ -701,11 +745,7 @@ Sheet_tittle:供货明细表'''
                                 top=Side(style='hair', color='D3D3D3'), bottom=Side(style='hair', color='D3D3D3')),
                 'alignment': Alignment(horizontal="center", vertical="center")
             },
-            'even_row': PatternFill(start_color='F5F5F5', end_color='F5F5F5', fill_type='solid'),
-            'negative': {
-                'font': Font(size=13, name='微软雅黑', color='FF0000'),
-                'fill': PatternFill(start_color='FFFF00', end_color='FFFF00', fill_type='solid')
-            }
+            'even_row': PatternFill(start_color='F5F5F5', end_color='F5F5F5', fill_type='solid')
         }
         
     def _apply_page_settings(self, ws):
@@ -720,8 +760,8 @@ Sheet_tittle:供货明细表'''
         ws.sheet_view.zoomScale = 80  # 设置页面缩放比例为80%
             
         ws.sheet_properties.pageSetUpPr.fitToPage = True
-        ws.print_title_rows = '1:7'
-        ws.freeze_panes = 'A8'
+        ws.print_title_rows = '1:6'
+        ws.freeze_panes = 'A7'
         
         # 页边距批量设置
         margins = {'left': 0.31, 'right': 0.31, 'top': 0.31, 'bottom': 0.79, 'header': 0.31, 'footer': 0.31}
@@ -762,14 +802,22 @@ Sheet_tittle:供货明细表'''
         for row in cell_generator():
             row_num = row[0].row
             
+            # 检查行中是否有负数（用于设置整行黄色背景）
+            has_negative = False
+            if row_num > 6 and row_num < ws.max_row:  # 只检查数据行，不包括表头和合计行
+                for cell in row:
+                    if isinstance(cell.value, (int, float)) and cell.value < 0:
+                        has_negative = True
+                        break
+            
             # 确定行样式
-            if row_num < 7:  # 前6行
+            if row_num <= 6:  # 前6行（包括第6行表头）
                 style = styles_cache['header']
-            elif row_num == 7:  # 第7行
+            elif row_num == 7:  # 第7行（数据开始行）
                 style = {
                     'fill': None,
                     'font': Font(color='000000', size=13, name='微软雅黑', bold=False),
-                    'border': Border(bottom=Side(style='thin', color='000000')),
+                    'border': None,  # 取消第七行下框线
                     'alignment': Alignment(horizontal="center", vertical="center")
                 }
             elif row_num == ws.max_row:  # 合计行
@@ -777,7 +825,8 @@ Sheet_tittle:供货明细表'''
                     'fill': None,
                     'font': Font(color='000000', size=13, name='微软雅黑', bold=True),
                     'border': Border(top=Side(style='thin', color='000000')),
-                    'alignment': Alignment(horizontal="center", vertical="center")
+                    'alignment': Alignment(horizontal="center", vertical="center"),
+                    'preserve_format': True  # 标记保留数字格式
                 }
             else:
                 style = styles_cache['data']
@@ -789,27 +838,54 @@ Sheet_tittle:供货明细表'''
                     if style['fill'] is not None:
                         cell.fill = style['fill']
                     cell.font = style['font']
-                    cell.border = style['border']
-                    cell.alignment = style['alignment']
+                    
+                    # 为第二行设置下边框
+                    if row_num == 2:
+                        cell.border = Border(bottom=Side(style='thin', color='000000'))
+                    # 为第六行（表头行）设置上边框和下边框
+                    elif row_num == 6:
+                        cell.border = Border(
+                            top=Side(style='thin', color='000000'),
+                            bottom=Side(style='thin', color='000000')
+                        )
+                    else:
+                        cell.border = style['border']
+                    
+                    # 为第3-5行设置右对齐
+                    if row_num in [3, 4, 5]:
+                        cell.alignment = Alignment(horizontal="right", vertical="center")
+                    # 为表头行的F列到I列设置右对齐
+                    elif row_num == 6 and cell.column in [6, 7, 8, 9]:  # F列到I列（单价、小计金额、税额、小计价税）
+                        cell.alignment = Alignment(horizontal="right", vertical="center")
+                    else:
+                        cell.alignment = style['alignment']
                     
                     # 设置第一行和第二行的行高
                     if row_num <= 2:
                         ws.row_dimensions[row_num].height = 26
                     # 设置第七行的行高
-                    elif row_num == 7:
+                    elif row_num == 6:
                         ws.row_dimensions[row_num].height = 30
                 else:
                     cell.font = style['font']
                     cell.border = style['border']
-                    cell.alignment = style['alignment']
                     
-                    if row_num % 2 == 0:
+                    # 对于合计行的数字列，保持会计格式和右对齐
+                    if row_num == ws.max_row and cell.column in [7, 8, 9]:  # 合计行的小计金额、税额、小计价税列
+                        # 保持add_total_row中设置的会计格式和右对齐，不覆盖
+                        pass
+                    else:
+                        cell.alignment = style['alignment']
+                    
+                    # 设置背景色：如果行中有负数则设置黄色背景，否则按奇偶行设置
+                    if has_negative:
+                        cell.fill = PatternFill(start_color='FFFF00', end_color='FFFF00', fill_type='solid')
+                    elif row_num % 2 == 0:
                         cell.fill = styles_cache['even_row']
                         
-                    # 优化负数检查
+                    # 负数字体设置为红色
                     if isinstance(cell.value, (int, float)) and cell.value < 0:
-                        cell.font = styles_cache['negative']['font']
-                        cell.fill = styles_cache['negative']['fill']
+                        cell.font = Font(size=13, name='微软雅黑', color='FF0000')
                     
     def bring_to_front(self):
         """将窗口带到前台"""
@@ -821,9 +897,9 @@ if __name__ == "__main__":
     root = ttk.Window(
         title=f"供应商对帐工具 v{VERSION} - Powered By Cayman Fu @ Sofitel HAIKOU",
         themename="cosmo",
-        size=(800, 630),
+        size=(1024, 768),
         position=None,  # 居中显示
-        minsize=(800, 630),
+        minsize=(1024, 768),
         resizable=(True, True),
     )
     app = BldBuyApp(root)

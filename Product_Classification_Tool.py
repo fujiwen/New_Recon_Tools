@@ -331,8 +331,13 @@ class ProductClassificationApp:
             self.progress['value'] = 100
             
             if successful_files > 0:
-                # 获取输出目录（假设所有文件都在同一个目录）
-                output_dir = os.path.dirname(file_paths[0])
+                # 获取输出目录
+                if self.edit_in_place_var.get():
+                    # 如果是原地编辑，打开原文件所在目录
+                    output_dir = os.path.dirname(file_paths[0])
+                else:
+                    # 如果是生成确认函，打开Confirmed文件夹
+                    output_dir = os.path.join(os.path.dirname(file_paths[0]), "Confirmed")
                 
                 message = "处理完成"
                 if self.edit_in_place_var.get():
@@ -470,6 +475,19 @@ class ProductClassificationApp:
                     # 添加分类结果
                     for i, row in df.iterrows():
                         ws.cell(row=i+7, column=14, value=row[classification_column])  # +7是因为Excel行从1开始，且表头在第6行
+                    
+                    # 为F列到I列（单价、小计金额、税额、小计价税）设置会计专用格式
+                    accounting_format = '_-* #,##0.00_-;-* #,##0.00_-;_-* "-"??_-;_-@_-'
+                    
+                    # 获取数据行范围（从第7行开始到最后一行）
+                    data_start_row = 7
+                    data_end_row = data_start_row + len(df) - 1
+                    
+                    # 设置F列到I列的会计格式（列6到列9）
+                    for col in range(6, 10):  # F列(6)到I列(9)
+                        for row in range(data_start_row, data_end_row + 1):
+                            cell = ws.cell(row=row, column=col)
+                            cell.number_format = accounting_format
                     
                     # 创建汇总sheet
                     if "汇总" not in wb.sheetnames:
@@ -691,10 +709,8 @@ class ProductClassificationApp:
                         )
                         cell.border = double_bottom_border
                         
-                        if col == 1:
-                            cell.alignment = Alignment(horizontal='left', vertical='center')
-                        else:
-                            cell.alignment = Alignment(horizontal='right', vertical='center')
+                        cell.alignment = Alignment(horizontal='right', vertical='center')
+                        if col > 1:
                             cell.number_format = '#,##0.00'
                     
                     # 读取总计行的第6列（总金额）并转换为中文大写写入B9单元格
@@ -938,6 +954,9 @@ class ProductClassificationApp:
                     for row_num in [2, 5, 8, 13]:
                         summary_sheet.row_dimensions[row_num].height = 30
                     
+                    # 隐藏品类标记列（第14列，即N列）
+                    ws.column_dimensions['N'].hidden = True
+                    
                     # 保存文件
                     wb.save(output_file)
                 except Exception as e:
@@ -1018,7 +1037,12 @@ class ProductClassificationApp:
             message = "文件处理完成，" + ("已直接修改原文件" if self.edit_in_place_var.get() else f"已保存到:\n{output_file}")
             if messagebox.askyesno("处理完成", f"{message}\n\n是否打开文件所在文件夹？"):
                 try:
-                    output_dir = os.path.dirname(output_file)
+                    # 如果是生成确认函（非原地编辑），打开Confirmed文件夹
+                    if not self.edit_in_place_var.get():
+                        output_dir = os.path.join(os.path.dirname(file_path), "Confirmed")
+                    else:
+                        output_dir = os.path.dirname(output_file)
+                    
                     if sys.platform == "win32":
                         os.startfile(output_dir)
                     elif sys.platform == "darwin":  # macOS
