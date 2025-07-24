@@ -305,6 +305,9 @@ Sheet_tittle:供货明细表'''
         
         self.log_text.delete(1.0, END)
         
+        # 初始化日志列表
+        self.log_messages = []
+        
         # 重置进度条并显示准备状态
         self.progress['value'] = 0
         self.progress.config(mode='determinate')
@@ -380,8 +383,7 @@ Sheet_tittle:供货明细表'''
         start_time = time.time()
         
         try:
-            # 初始化日志列表和文件夹
-            self.log_messages = []
+            # 初始化文件夹
             folders = {
                 'output': "export",
                 'archive': "archive"
