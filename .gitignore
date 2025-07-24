@@ -23,7 +23,7 @@ wheels/
 *.exe
 __pycache__/
 build/build/
-
+.vercel/
 # PyInstaller
 *.manifest
 *.spec
