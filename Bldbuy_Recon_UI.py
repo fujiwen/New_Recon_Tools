@@ -31,7 +31,7 @@ class BldBuyApp:
             self.root.iconbitmap(icon_path)
         
         # 设置窗口大小并居中
-        self.set_window_geometry(1280, 849)
+        self.set_window_geometry(800, 630)
         
         # 创建主题选择下拉框
         self.create_theme_selector()
@@ -434,9 +434,10 @@ Sheet_tittle:供货明细表'''
             sheet_title = config.get('Sheet_tittle', '').strip()
             
             return [
+                [''] * 5 + [hotelname] + [''] * 7,
+                [''] * 5 + [sheet_title] + [''] * 7,
                 [''] * 13,
-                [''] * 6 + [hotelname] + [''] * 6,
-                [''] * 6 + [sheet_title] + [''] * 6,
+                [''] * 13,
                 [''] * 13,
                 [''] * 13
             ]
@@ -608,6 +609,32 @@ Sheet_tittle:供货明细表'''
         
         # 添加合计行
         self.add_total_row(ws, df_processed)
+        
+        # 填入固定文字
+        ws['A3'] = '供应商名称：'
+        ws['A4'] = '对帐周期：'
+        ws['C3'] = '小计金额(结算)：'
+        ws['C4'] = '税额(结算)：'
+        ws['C5'] = '小计价税(结算)：'
+        
+        # 填入数据
+        supplier_name = df_processed['供应商/备用金报销账户'].iloc[0] if not df_processed.empty else ''
+        ws['B3'] = supplier_name
+        
+        # 提取年月
+        dates = pd.to_datetime(df_processed['收货日期'])
+        if not dates.empty:
+            year_month = dates.min().strftime('%Y年%m月')
+            ws['B4'] = year_month
+        
+        # 填入合计数据
+        ws['D3'] = '{:.2f}'.format(df_processed['小计金额(结算)'].astype(float).sum())
+        ws['D4'] = '{:.2f}'.format(df_processed['税额(结算)'].astype(float).sum())
+        ws['D5'] = '{:.2f}'.format(df_processed['小计价税(结算)'].astype(float).sum())
+        
+        # 隐藏L列和M列
+        ws.column_dimensions['L'].hidden = True
+        ws.column_dimensions['M'].hidden = True
     
     def process_return_data(self, ws, group_data):
         """处理退货数据"""
@@ -663,10 +690,9 @@ Sheet_tittle:供货明细表'''
         """创建并缓存常用样式"""
         return {
             'header': {
-                'fill': PatternFill(start_color='1F497D', end_color='1F497D', fill_type='solid'),
-                'font': Font(color='FFFFFF', size=13, name='微软雅黑', bold=True),
-                'border': Border(left=Side(style='thin', color='1F497D'), right=Side(style='thin', color='1F497D'),
-                                top=Side(style='thin', color='1F497D'), bottom=Side(style='thin', color='1F497D')),
+                'fill': None,  # 移除背景色
+                'font': Font(color='000000', size=13, name='微软雅黑', bold=False),  # 取消加粗
+                'border': None,  # 移除所有边框
                 'alignment': Alignment(horizontal="center", vertical="center")
             },
             'data': {
@@ -691,13 +717,14 @@ Sheet_tittle:供货明细表'''
         ws.page_setup.fitToHeight = 0
         ws.page_setup.horizontalCentered = True
         ws.page_setup.verticalCentered = False
+        ws.sheet_view.zoomScale = 80  # 设置页面缩放比例为80%
             
         ws.sheet_properties.pageSetUpPr.fitToPage = True
         ws.print_title_rows = '1:6'
-        ws.freeze_panes = 'A7'
+        ws.freeze_panes = 'A8'
         
         # 页边距批量设置
-        margins = {'left': 0.31, 'right': 0.31, 'top': 0.31, 'bottom': 0.79, 'header': 0.31, 'footer': 0.31}
+        margins = {'left': 0.31, 'right': 0.31, 'top': 0.31, 'bottom': 0.79, 'header': 0.31, 'footer': 0.50}
         ws.page_margins = PageMargins(**{k: v * 0.3937 for k, v in margins.items()})
         
         # 页脚设置
@@ -708,8 +735,8 @@ Sheet_tittle:供货明细表'''
     def _apply_column_widths(self, ws):
         """批量应用列宽设置（使用缓存）"""
         widths = {
-            '订单号': 30, '收货日期': 18, '商品名称': 22, '实收数量': 12, '基本单位': 12,
-            '单价(结算)': 20, '小计金额(结算)': 24, '税额(结算)': 20, '小计价税(结算)': 20,
+            '订单号': 35, '收货日期': 18, '商品名称': 22, '实收数量': 12, '基本单位': 12,
+            '单价(结算)': 24, '小计金额(结算)': 24, '税额(结算)': 20, '小计价税(结算)': 20,
             '部门': 20, '供应商/备用金报销账户': 36, '商品分类': 24
         }
         
@@ -736,18 +763,41 @@ Sheet_tittle:供货明细表'''
             row_num = row[0].row
             
             # 确定行样式
-            if row_num <= 6 or row_num == ws.max_row:
+            if row_num < 6:  # 前5行
                 style = styles_cache['header']
+            elif row_num == 6:  # 第6行
+                style = {
+                    'fill': None,
+                    'font': Font(color='000000', size=13, name='微软雅黑', bold=False),
+                    'border': Border(bottom=Side(style='thin', color='000000')),
+                    'alignment': Alignment(horizontal="center", vertical="center")
+                }
+            elif row_num == ws.max_row:  # 合计行
+                style = {
+                    'fill': None,
+                    'font': Font(color='000000', size=13, name='微软雅黑', bold=True),
+                    'border': Border(top=Side(style='thin', color='000000')),
+                    'alignment': Alignment(horizontal="center", vertical="center")
+                }
             else:
                 style = styles_cache['data']
                 
             # 批量应用样式
             for cell in row:
                 if style == styles_cache['header']:
-                    cell.fill = style['fill']
+                    # 对于表头行（1-6行），不应用背景色
+                    if style['fill'] is not None:
+                        cell.fill = style['fill']
                     cell.font = style['font']
                     cell.border = style['border']
                     cell.alignment = style['alignment']
+                    
+                    # 设置第一行和第二行的行高
+                    if row_num <= 2:
+                        ws.row_dimensions[row_num].height = 26
+                    # 设置第六行的行高
+                    elif row_num == 6:
+                        ws.row_dimensions[row_num].height = 30
                 else:
                     cell.font = style['font']
                     cell.border = style['border']
@@ -771,9 +821,9 @@ if __name__ == "__main__":
     root = ttk.Window(
         title=f"供应商对帐工具 v{VERSION} - Powered By Cayman Fu @ Sofitel HAIKOU",
         themename="cosmo",
-        size=(800, 600),
+        size=(800, 630),
         position=None,  # 居中显示
-        minsize=(800, 600),
+        minsize=(800, 630),
         resizable=(True, True),
     )
     app = BldBuyApp(root)

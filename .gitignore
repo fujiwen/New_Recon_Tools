@@ -51,3 +51,6 @@ Desktop.ini
 *.log
 *.zip
 config.txt
+*.xlsx
+*.xls
+.DS_Store
