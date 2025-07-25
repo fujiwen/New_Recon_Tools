@@ -19,7 +19,7 @@ import subprocess
 from Product_Classification_Tool import ProductClassificationApp
 
 # 版本号
-VERSION = '2.0.5'
+VERSION = '2.0.6'
 
 class BldBuyApp:
     def __init__(self, root):
