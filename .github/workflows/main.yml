@@ -32,6 +32,15 @@ jobs:
         $version = Select-String -Path Bldbuy_Recon_UI.py -Pattern "VERSION = '([\d\.]+)'" | ForEach-Object { $_.Matches.Groups[1].Value }
         echo "APP_VERSION=$version" >> $env:GITHUB_ENV
         
+    - name: Create ZIP Archive
+      run: |
+        Compress-Archive -Path dist/recon_tools_*.exe -DestinationPath dist/recon_tools_v${{ env.APP_VERSION }}.zip
+
+    - name: Upload to DUFS
+      run: |
+        $file = Get-ChildItem dist/recon_tools_*.zip | Select-Object -First 1
+        curl -T $file.FullName -u fujiwen:Hilton1@# https://down.hksft.com/upload/
+
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
