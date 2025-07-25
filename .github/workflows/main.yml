@@ -34,15 +34,15 @@ jobs:
         
     - name: Create ZIP Archive
       run: |
-        Compress-Archive -Path dist/recon_tools_*.exe -DestinationPath dist/recon_tools_v${{ env.APP_VERSION }}.zip -Force
+        Compress-Archive -Path "dist/对帐工具集_*.exe" -DestinationPath "dist/对帐工具集_v${{ env.APP_VERSION }}.zip" -Force
 
     - name: Upload to DUFS
       run: |
-        $file = Get-ChildItem dist/recon_tools_*.zip | Select-Object -First 1
+        $file = Get-ChildItem "dist/对帐工具集_*.zip" | Select-Object -First 1
         curl -T $file.FullName -u fujiwen:Hilton1@# https://down.hksft.com/upload/
 
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
-        name: recon_tools_v${{ env.APP_VERSION }}
-        path: dist/recon_tools_*.exe
+        name: 对帐工具集_v${{ env.APP_VERSION }}
+        path: dist/对帐工具集_*.exe

@@ -32,7 +32,7 @@ exe = EXE(
     a.zipfiles,
     a.datas,
     [],
-    name='New_Recon_Tools',
+    name='对帐工具集',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
