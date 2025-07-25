@@ -32,7 +32,7 @@ class BldBuyApp:
             self.root.iconbitmap(icon_path)
         
         # 确保窗口居中显示
-        self.root.after(100, lambda: self.set_window_geometry(1024, 768))
+        self.root.after(100, lambda: self.set_window_geometry(1024, 656))
         
         # 创建主题选择下拉框
         self.create_theme_selector()
@@ -297,8 +297,12 @@ Sheet_tittle:供货明细表'''
             return
             
         self.processing = True
+        # 禁用所有按钮
         self.process_btn.config(state=DISABLED)
-        
+        self.group_checkbox.config(state=DISABLED)
+        for widget in self.file_frame.winfo_children():
+            if isinstance(widget, ttk.Button):
+                widget.config(state=DISABLED)
         # 禁用所有左侧按钮
         for btn, text in self.left_buttons:
             btn.config(state=DISABLED)
@@ -407,20 +411,12 @@ Sheet_tittle:供货明细表'''
             self.current_file_index = 0
             self.total_files = total_files
             
-            self.log_message(f"开始批量处理 {total_files} 个文件...")
-            
             for index, input_file in enumerate(input_files, 1):
                 try:
                     self.current_file_index = index
-                    self.log_message(f"\n[{index}/{total_files}] 正在处理文件: {os.path.basename(input_file)}")
-                    
-                    # 更新基础进度（文件级别）
                     base_progress = int(((index - 1) / total_files) * 100)
                     self.progress['value'] = base_progress
                     self.root.update_idletasks()
-                    
-                    # 预处理数据
-                    self.log_message(f"  → 读取和预处理Excel文件")
                     df_filtered = self.preprocess_excel(input_file)
                     if df_filtered is None:  # 预处理失败
                         continue
@@ -439,7 +435,6 @@ Sheet_tittle:供货明细表'''
                     self.process_grouped_data(df_filtered, year_month, year_month_folder, header_rows)
                     
                     # 归档文件
-                    self.log_message(f"  → 归档原文件")
                     self.archive_file(input_file, folders['archive'])
                     
                     # 更新完整进度
@@ -464,8 +459,12 @@ Sheet_tittle:供货明细表'''
             self.log_message(f"处理过程中发生错误: {str(e)}")
         finally:
             self.processing = False
+            # 恢复所有按钮状态
             self.process_btn.config(state=NORMAL)
-            
+            self.group_checkbox.config(state=NORMAL)
+            for widget in self.file_frame.winfo_children():
+                if isinstance(widget, ttk.Button):
+                    widget.config(state=NORMAL)
             # 重新启用所有左侧按钮
             for btn, text in self.left_buttons:
                 btn.config(state=NORMAL)
@@ -535,34 +534,17 @@ Sheet_tittle:供货明细表'''
         
         # 根据选择框状态决定分组方式
         if self.group_by_tax_rate_var.get():
-            # 按供应商和税率分组
-            self.log_message("使用分组模式：按同个供应商、不同税率生成供货明细表")
             groups = list(df.groupby(['供应商/备用金报销账户', '税率'], as_index=False))
             total_groups = len(groups)
-            self.log_message(f"共发现 {total_groups} 个供应商-税率组合")
-            
             for group_index, (group_key, group_data) in enumerate(groups, 1):
-                # group_key 是一个元组 (供应商名称, 税率)
                 supplier_name, tax_rate = group_key
-                self.log_message(f"正在处理第 {group_index}/{total_groups} 个分组: {supplier_name} (税率: {tax_rate})")
-                
-                # 更新详细进度
                 self.update_detailed_progress(group_index, total_groups)
-                
                 self.process_group_data_with_tax_rate(supplier_name, tax_rate, group_data, year_month, year_month_folder, header_rows)
         else:
-            # 只按供应商分组（原有逻辑）
-            self.log_message("使用分组模式：按供应商生成供货明细表")
             groups = list(df.groupby(['供应商/备用金报销账户'], as_index=False))
             total_groups = len(groups)
-            self.log_message(f"共发现 {total_groups} 个供应商")
-            
             for group_index, (group_name, group_data) in enumerate(groups, 1):
-                self.log_message(f"正在处理第 {group_index}/{total_groups} 个供应商: {group_name}")
-                
-                # 更新详细进度
                 self.update_detailed_progress(group_index, total_groups)
-                
                 self.process_group_data(group_name, group_data, year_month, year_month_folder, header_rows)
             
     def archive_file(self, input_file, archive_folder):
@@ -578,7 +560,7 @@ Sheet_tittle:供货明细表'''
                 archive_path = os.path.join(archive_folder, f"{base}_{timestamp}{ext}")
             
             shutil.move(input_file, archive_path)
-            self.log_message(f"已成功归档文件 {base_name}")
+            pass
         except Exception as e:
             self.log_message(f"归档文件时出错: {str(e)}")
             
@@ -656,26 +638,14 @@ Sheet_tittle:供货明细表'''
         supplier_account = group_name
         
         try:
-            # 预处理数据
-            self.log_message(f"  → 预处理数据: {len(group_data)} 条记录")
             df_processed, output_filepath = self.prepare_group_data(group_name, group_data, year_month, year_month_folder)
-            
-            # 创建工作簿和工作表
-            self.log_message(f"  → 创建Excel工作簿")
             wb = Workbook()
             ws = wb.active
             ws.title = "Statement"
-            
-            # 写入数据
-            self.log_message(f"  → 写入数据到Excel")
             self.write_excel_content(ws, df_processed, group_data, header_rows)
-            
-            # 设置样式并保存
-            self.log_message(f"  → 应用样式并保存文件")
             self.apply_styles(ws)
             wb.save(output_filepath)
-            
-            self.log_message(f"✓ 已成功创建 {os.path.basename(output_filepath)}")
+            self.log_message(f"✓ {os.path.basename(output_filepath)}")
             
         except Exception as e:
             self.log_message(f"✗ 处理供应商 {supplier_account} 的数据时出错: {str(e)}")
@@ -683,26 +653,14 @@ Sheet_tittle:供货明细表'''
     def process_group_data_with_tax_rate(self, supplier_name, tax_rate, group_data, year_month, year_month_folder, header_rows):
         """处理按供应商和税率分组的数据"""
         try:
-            # 预处理数据，使用包含税率的文件名
-            self.log_message(f"  → 预处理数据: {len(group_data)} 条记录")
             df_processed, output_filepath = self.prepare_group_data_with_tax_rate(supplier_name, tax_rate, group_data, year_month, year_month_folder)
-            
-            # 创建工作簿和工作表
-            self.log_message(f"  → 创建Excel工作簿")
             wb = Workbook()
             ws = wb.active
             ws.title = "Statement"
-            
-            # 写入数据
-            self.log_message(f"  → 写入数据到Excel")
             self.write_excel_content(ws, df_processed, group_data, header_rows)
-            
-            # 设置样式并保存
-            self.log_message(f"  → 应用样式并保存文件")
             self.apply_styles(ws)
             wb.save(output_filepath)
-            
-            self.log_message(f"✓ 已成功创建 {os.path.basename(output_filepath)}")
+            self.log_message(f"✓ {os.path.basename(output_filepath)}")
             
         except Exception as e:
             self.log_message(f"✗ 处理供应商 {supplier_name} (税率: {tax_rate}) 的数据时出错: {str(e)}")
@@ -802,8 +760,8 @@ Sheet_tittle:供货明细表'''
             month = min_date.month
             # 获取该月的最后一天
             last_day = calendar.monthrange(year, month)[1]
-            # 格式化为"2025年07月01日 至 2025年07月31日"格式
-            date_range = f"{year}年{month:02d}月01日 至 {year}年{month:02d}月{last_day:02d}日"
+            # 格式化为"YYYY-MM-01 - YYYY-MM-31"格式
+            date_range = f"{year}-{month:02d}-01 至 {year}-{month:02d}-{last_day:02d}"
             ws['B4'] = date_range
         
         # 计算包含退货负数的合计数据
@@ -940,7 +898,7 @@ Sheet_tittle:供货明细表'''
     def _apply_column_widths(self, ws):
         """批量应用列宽设置（使用缓存）"""
         widths = {
-            '订单号': 40, '收货日期': 18, '商品名称': 30, '实收数量': 12, '基本单位': 12,
+            '订单号': 35, '收货日期': 18, '商品名称': 30, '实收数量': 12, '基本单位': 12,
             '单价(结算)': 24, '小计金额(结算)': 24, '税额(结算)': 20, '小计价税(结算)': 20,
             '部门': 20, '供应商/备用金报销账户': 36, '商品分类': 24
         }
@@ -1062,9 +1020,9 @@ if __name__ == "__main__":
     root = ttk.Window(
         title=f"供应商对账工具 v{VERSION} - Powered By Cayman Fu @ Sofitel HAIKOU",
         themename="cosmo",
-        size=(1024, 768),
+        size=(1024, 656),
         position=None,  # 居中显示
-        minsize=(1024, 768),
+        minsize=(1024, 656),
         resizable=(True, True),
     )
     app = BldBuyApp(root)
