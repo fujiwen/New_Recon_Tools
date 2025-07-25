@@ -807,12 +807,10 @@ class ProductClassificationApp:
                                         except ValueError:
                                             continue
 
-                            # 根据税率数量生成税率文本
-                            if len(tax_rates) > 1:
-                                tax_rate_text = "多税率"
-                            elif len(tax_rates) == 1:
-                                tax_rate = list(tax_rates)[0]
-                                tax_rate_text = f"{tax_rate}%"
+                            # 根据税率生成税率文本
+                            if tax_rates:
+                                tax_rates_list = sorted([f"{int(rate)}%" for rate in tax_rates])
+                                tax_rate_text = "，".join(tax_rates_list)
                             else:
                                 tax_rate_text = ""
                             

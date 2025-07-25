@@ -411,9 +411,12 @@ Sheet_tittle:供货明细表'''
             self.current_file_index = 0
             self.total_files = total_files
             
+            self.log_message(f"开始批量处理 {total_files} 个文件...")
+            
             for index, input_file in enumerate(input_files, 1):
                 try:
                     self.current_file_index = index
+                    self.log_message(f"\n[{index}/{total_files}] 正在处理: {os.path.basename(input_file)}")
                     base_progress = int(((index - 1) / total_files) * 100)
                     self.progress['value'] = base_progress
                     self.root.update_idletasks()
@@ -435,6 +438,7 @@ Sheet_tittle:供货明细表'''
                     self.process_grouped_data(df_filtered, year_month, year_month_folder, header_rows)
                     
                     # 归档文件
+                    self.log_message(f"  → 归档原文件")
                     self.archive_file(input_file, folders['archive'])
                     
                     # 更新完整进度
@@ -536,6 +540,8 @@ Sheet_tittle:供货明细表'''
         if self.group_by_tax_rate_var.get():
             groups = list(df.groupby(['供应商/备用金报销账户', '税率'], as_index=False))
             total_groups = len(groups)
+            self.log_message(f"共 {total_groups} 个供应商-税率组合")
+            
             for group_index, (group_key, group_data) in enumerate(groups, 1):
                 supplier_name, tax_rate = group_key
                 self.update_detailed_progress(group_index, total_groups)
@@ -543,6 +549,8 @@ Sheet_tittle:供货明细表'''
         else:
             groups = list(df.groupby(['供应商/备用金报销账户'], as_index=False))
             total_groups = len(groups)
+            self.log_message(f"共 {total_groups} 个供应商")
+            
             for group_index, (group_name, group_data) in enumerate(groups, 1):
                 self.update_detailed_progress(group_index, total_groups)
                 self.process_group_data(group_name, group_data, year_month, year_month_folder, header_rows)
@@ -560,7 +568,7 @@ Sheet_tittle:供货明细表'''
                 archive_path = os.path.join(archive_folder, f"{base}_{timestamp}{ext}")
             
             shutil.move(input_file, archive_path)
-            pass
+            self.log_message(f"已成功归档文件 {base_name}")
         except Exception as e:
             self.log_message(f"归档文件时出错: {str(e)}")
             
@@ -653,14 +661,26 @@ Sheet_tittle:供货明细表'''
     def process_group_data_with_tax_rate(self, supplier_name, tax_rate, group_data, year_month, year_month_folder, header_rows):
         """处理按供应商和税率分组的数据"""
         try:
+            # 预处理数据，使用包含税率的文件名
+            self.log_message(f"  → 预处理数据: {len(group_data)} 条记录")
             df_processed, output_filepath = self.prepare_group_data_with_tax_rate(supplier_name, tax_rate, group_data, year_month, year_month_folder)
+            
+            # 创建工作簿和工作表
+            self.log_message(f"  → 创建Excel工作簿")
             wb = Workbook()
             ws = wb.active
             ws.title = "Statement"
+            
+            # 写入数据
+            self.log_message(f"  → 写入数据到Excel")
             self.write_excel_content(ws, df_processed, group_data, header_rows)
+            
+            # 设置样式并保存
+            self.log_message(f"  → 应用样式并保存文件")
             self.apply_styles(ws)
             wb.save(output_filepath)
-            self.log_message(f"✓ {os.path.basename(output_filepath)}")
+            
+            self.log_message(f"✓ 已成功创建 {os.path.basename(output_filepath)}")
             
         except Exception as e:
             self.log_message(f"✗ 处理供应商 {supplier_name} (税率: {tax_rate}) 的数据时出错: {str(e)}")
